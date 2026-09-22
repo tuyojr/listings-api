@@ -22,6 +22,17 @@ def build_listings_database_url() -> str:
     )
 
 
+def build_listing_migration_url() -> str:
+    """Migration URL that's used only by Alembic. Has DDL privileges."""
+    return build_database_url(
+        host_env="LISTING_DB_HOST",
+        port_env="LISTING_DB_PORT",
+        name_env="LISTING_DB_NAME",
+        user_env="LISTING_DB_MIGRATE_USER",
+        password_secret="listing_db_migrate_password",
+    )
+
+
 def create_engine_and_session(database_url: str):
     engine = create_async_engine(
         database_url,
