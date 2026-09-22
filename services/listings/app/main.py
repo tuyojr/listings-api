@@ -1,8 +1,10 @@
 from contextlib import asynccontextmanager
 import logging
 
-from fastapi import FastAPI
+from fastapi import FastAPI, Request, HTTPException
+from fastapi.responses import JSONResponse
 from fastapi.middleware.cors import CORSMiddleware
+from sqlalchemy import text
 
 from app.config import settings
 from app.database import build_listings_database_url, create_engine_and_session
@@ -58,6 +60,21 @@ app.add_middleware(
 app.include_router(listings.router)
 
 
+@app.exception_handler(Exception)
+async def unhandled_exception_handler(request: Request, exc: Exception):
+    logger.exception("Unhandled error on %s %s", request.method, request.url.path)
+    return JSONResponse(
+        status_code=500,
+        content={"detail": "Internal server error"},
+    )
+
+
 @app.get("/health")
 async def health():
+    try:
+        async with app.state.session_factory() as session:
+            await session.execute(text("SELECT 1"))
+    except Exception as exc:
+        logging.getLogger(__name__).error("Health check failed: %s", exc)
+        raise HTTPException(status_code=503, detail="Database unreachable")
     return {"status": "ok", "service": "listings"}

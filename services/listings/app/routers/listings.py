@@ -22,6 +22,7 @@ async def create_listing(
     listing = Listing(**body.model_dump(), owner_id=user_id)
     db.add(listing)
     await db.commit()
+    await set_rls_user(db, user_id)
     await db.refresh(listing)
     return listing
 
@@ -85,6 +86,7 @@ async def update_listing(
         setattr(listing, field, value)
 
     await db.commit()
+    await set_rls_user(db, user_id)
     await db.refresh(listing)
     return listing
 

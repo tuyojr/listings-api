@@ -14,6 +14,8 @@ from sqlalchemy import text
 from shared.secrets import build_database_url
 from app.config import settings
 
+from fastapi import Request
+
 logger = logging.getLogger(__name__)
 
 
@@ -62,7 +64,7 @@ def create_engine_and_session(database_url: str):
     return engine, session_factory
 
 
-async def get_db(request):
+async def get_db(request: Request):
     """FastAPI dependency: yields a session from the app-level factory."""
     session_factory = request.app.state.session_factory
     async with session_factory() as session:

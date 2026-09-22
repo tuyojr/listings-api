@@ -72,6 +72,7 @@ services:
       ARGON2_PARALLELISM: "1"
     secrets:
       - auth_db_password
+      - auth_db_migrate_password
       - jwt_secret_key
     networks:
       - frontend
@@ -125,9 +126,11 @@ services:
       LISTING_DB_PORT: "5432"
       LISTING_DB_NAME: listings
       LISTING_DB_USER: listing_rw
+      LISTING_DB_MIGRATE_USER: listing_migrate
       JWT_ALGORITHM: HS256
     secrets:
       - listing_db_password
+      - listing_db_migrate_password
       - jwt_secret_key
     networks:
       - frontend

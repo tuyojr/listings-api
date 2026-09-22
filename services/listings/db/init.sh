@@ -28,7 +28,7 @@ psql -v ON_ERROR_STOP=1 --username "$POSTGRES_USER" --dbname "$POSTGRES_DB" <<-E
     END
     \$\$;
 
-    GRANT CONNECT ON DATABASE listing TO listing_migrate;
+    GRANT CONNECT ON DATABASE listings TO listing_migrate;
     GRANT USAGE, CREATE ON SCHEMA public TO listing_migrate;
     ALTER SCHEMA public OWNER TO listing_migrate;
 
