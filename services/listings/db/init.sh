@@ -1,7 +1,20 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-LISTING_DB_PASSWORD="$(cat /run/secrets/listing_db_password)"
+SECRET_FILE="/run/secrets/listing_db_password"
+
+if [ ! -f "$SECRET_FILE" ]; then
+    echo "FATAL: Secret file $SECRET_FILE not found." >&2
+    echo "Ensure docker-compose.yml mounts 'listing_db_password' onto this container." >&2
+    exit 1
+fi
+
+LISTING_DB_PASSWORD="$(cat "$SECRET_FILE")"
+
+if [ -z "$LISTING_DB_PASSWORD" ]; then
+    echo "FATAL: Secret file $SECRET_FILE is empty." >&2
+    exit 1
+fi
 
 psql -v ON_ERROR_STOP=1 --username "$POSTGRES_USER" --dbname "$POSTGRES_DB" <<-EOSQL
     DO \$\$

@@ -1,13 +1,22 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-# This script runs as part of the postgres entrypoint.
-# The password secret is mounted at /run/secrets/auth_db_password.
+SECRET_FILE="/run/secrets/auth_db_password"
 
-AUTH_DB_PASSWORD="$(cat /run/secrets/auth_db_password)"
+if [ ! -f "$SECRET_FILE" ]; then
+    echo "FATAL: Secret file $SECRET_FILE not found." >&2
+    echo "Ensure docker-compose.yml mounts 'auth_db_password' onto this container." >&2
+    exit 1
+fi
+
+AUTH_DB_PASSWORD="$(cat "$SECRET_FILE")"
+
+if [ -z "$AUTH_DB_PASSWORD" ]; then
+    echo "FATAL: Secret file $SECRET_FILE is empty." >&2
+    exit 1
+fi
 
 psql -v ON_ERROR_STOP=1 --username "$POSTGRES_USER" --dbname "$POSTGRES_DB" <<-EOSQL
-    -- Create the least-privilege runtime role
     DO \$\$
     BEGIN
         IF NOT EXISTS (SELECT FROM pg_roles WHERE rolname = 'auth_rw') THEN
