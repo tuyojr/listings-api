@@ -9,6 +9,8 @@
 secrets:
   auth_db_password:
     file: ./secrets/auth_db_password.txt
+  auth_db_migrate_password:                    # ← ADD
+    file: ./secrets/auth_db_password.txt
   listing_db_password:
     file: ./secrets/listing_db_password.txt
   auth_db_root_password:
