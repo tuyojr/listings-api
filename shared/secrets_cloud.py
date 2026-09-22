@@ -17,6 +17,7 @@ from __future__ import annotations
 import logging
 import os
 from functools import lru_cache
+from typing import cast
 
 logger = logging.getLogger(__name__)
 
@@ -72,7 +73,7 @@ def _get_gcp_secret(secret_id: str, version: str = "latest") -> str:
         logger.error("Secret Manager API error for %s: %s", secret_id, exc)
         raise RuntimeError(f"Failed to retrieve secret '{secret_id}'.") from exc
 
-    return response.payload.data.decode("UTF-8")
+    return cast(str, response.payload.data.decode("UTF-8"))
 
 
 def _get_aws_secret(secret_id: str) -> str:
@@ -128,7 +129,7 @@ def _get_aws_secret(secret_id: str) -> str:
             f"Secret '{secret_id}' has no SecretString. Binary secrets are not supported."
         )
 
-    return secret
+    return cast(str, secret)
 
 
 @lru_cache(maxsize=32)

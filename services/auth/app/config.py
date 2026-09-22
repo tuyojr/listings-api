@@ -36,4 +36,4 @@ class Settings(BaseSettings):
         return v
 
 
-settings = Settings()
+settings = Settings()  # type: ignore[call-arg]

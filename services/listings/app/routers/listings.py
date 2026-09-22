@@ -1,3 +1,4 @@
+from collections.abc import Sequence
 from typing import Annotated
 from uuid import UUID
 
@@ -17,7 +18,7 @@ CurrentUser = Annotated[UUID, Depends(get_current_user_id)]
 
 
 @router.post("", response_model=ListingResponse, status_code=201)
-async def create_listing(body: ListingCreate, user_id: CurrentUser, db: DB):
+async def create_listing(body: ListingCreate, user_id: CurrentUser, db: DB) -> Listing:
     await set_rls_user(db, user_id)
     listing = Listing(**body.model_dump(), owner_id=user_id)
     db.add(listing)
@@ -37,7 +38,7 @@ async def list_listings(
     max_price: Annotated[float | None, Query(ge=0)] = None,
     skip: Annotated[int, Query(ge=0)] = 0,
     limit: Annotated[int, Query(ge=1, le=100)] = 50,
-):
+) -> Sequence[Listing]:
     await set_rls_user(db, user_id)
 
     stmt = select(Listing).where(Listing.is_available.is_(True))
@@ -56,7 +57,7 @@ async def list_listings(
 
 
 @router.get("/{listing_id}", response_model=ListingResponse)
-async def get_listing(listing_id: UUID, user_id: CurrentUser, db: DB):
+async def get_listing(listing_id: UUID, user_id: CurrentUser, db: DB) -> Listing:
     await set_rls_user(db, user_id)
     result = await db.execute(select(Listing).where(Listing.id == listing_id))
     listing = result.scalar_one_or_none()
@@ -71,7 +72,7 @@ async def update_listing(
     body: ListingUpdate,
     user_id: CurrentUser,
     db: DB,
-):
+) -> Listing:
     await set_rls_user(db, user_id)
     result = await db.execute(select(Listing).where(Listing.id == listing_id))
     listing = result.scalar_one_or_none()
@@ -86,7 +87,7 @@ async def update_listing(
 
 
 @router.delete("/{listing_id}", status_code=204)
-async def delete_listing(listing_id: UUID, user_id: CurrentUser, db: DB):
+async def delete_listing(listing_id: UUID, user_id: CurrentUser, db: DB) -> None:
     await set_rls_user(db, user_id)
     result = await db.execute(select(Listing).where(Listing.id == listing_id))
     listing = result.scalar_one_or_none()

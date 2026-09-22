@@ -35,7 +35,7 @@ DB = Annotated[AsyncSession, Depends(get_db)]
 
 
 @router.post("/register", response_model=UserResponse, status_code=201)
-async def register(body: UserRegister, db: DB):
+async def register(body: UserRegister, db: DB) -> User:
     existing = await db.execute(select(User).where(User.email == body.email))
     if existing.scalar_one_or_none():
         raise HTTPException(status_code=409, detail="Email already registered")
@@ -50,7 +50,7 @@ async def register(body: UserRegister, db: DB):
 
 
 @router.post("/login", response_model=TokenResponse)
-async def login(body: UserLogin, db: DB):
+async def login(body: UserLogin, db: DB) -> TokenResponse:
     result = await db.execute(
         select(User).where(User.email == body.email, User.is_active.is_(True))
     )
@@ -84,7 +84,7 @@ async def login(body: UserLogin, db: DB):
 
 
 @router.post("/refresh", response_model=TokenResponse)
-async def refresh(body: RefreshRequest, db: DB):
+async def refresh(body: RefreshRequest, db: DB) -> TokenResponse:
     secret = get_secret("jwt_secret_key")
     payload = validate_refresh_token(body.refresh_token, secret, settings.JWT_ALGORITHM)
     user_id = UUID(payload["sub"])
@@ -122,7 +122,7 @@ async def refresh(body: RefreshRequest, db: DB):
 
 
 @router.post("/logout", status_code=204)
-async def logout(body: RefreshRequest, db: DB):
+async def logout(body: RefreshRequest, db: DB) -> None:
     token_hash = hash_refresh_token(body.refresh_token)
     result = await db.execute(select(RefreshToken).where(RefreshToken.token_hash == token_hash))
     stored = result.scalar_one_or_none()

@@ -12,7 +12,7 @@ from fastapi import HTTPException, status
 logger = logging.getLogger(__name__)
 
 
-def decode_token(token: str, secret: str, algorithm: str = "HS256") -> dict:
+def decode_token(token: str, secret: str, algorithm: str = "HS256") -> dict[str, object]:
     """
     Decode and validate a JWT. The algorithm is PINNED by the caller —
     never read from the token header. This prevents alg=none and
@@ -46,7 +46,7 @@ def decode_token(token: str, secret: str, algorithm: str = "HS256") -> dict:
     return payload
 
 
-def validate_access_token(token: str, secret: str, algorithm: str = "HS256") -> dict:
+def validate_access_token(token: str, secret: str, algorithm: str = "HS256") -> dict[str, object]:
     """Validate an access token and ensure its type is 'access'."""
     payload = decode_token(token, secret, algorithm)
     if payload.get("type") != "access":
@@ -58,7 +58,7 @@ def validate_access_token(token: str, secret: str, algorithm: str = "HS256") -> 
     return payload
 
 
-def validate_refresh_token(token: str, secret: str, algorithm: str = "HS256") -> dict:
+def validate_refresh_token(token: str, secret: str, algorithm: str = "HS256") -> dict[str, object]:
     """Validate a refresh token and ensure its type is 'refresh'."""
     payload = decode_token(token, secret, algorithm)
     if payload.get("type") != "refresh":

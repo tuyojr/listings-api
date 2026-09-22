@@ -61,6 +61,15 @@ pretty = true
 module = ["alembic.*"]
 ignore_errors = true
 
+[[tool.mypy.overrides]]
+module = [
+    "google.*",
+    "boto3.*",
+    "botocore.*",
+    "asyncpg.*",
+]
+ignore_missing_imports = true
+
 [tool.bandit]
 exclude_dirs = ["tests", "alembic", ".venv", "venv"]
 skips = ["B101"]  # assert_used — fine in tests, but we already exclude tests

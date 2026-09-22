@@ -5,9 +5,11 @@ The URL is never stored in an environment variable or logged.
 """
 
 import logging
+from collections.abc import AsyncIterator
 
 from fastapi import Request
 from sqlalchemy.ext.asyncio import (
+    AsyncEngine,
     AsyncSession,
     async_sessionmaker,
     create_async_engine,
@@ -40,7 +42,9 @@ def build_auth_migration_url() -> str:
     )
 
 
-def create_engine_and_session(database_url: str):
+def create_engine_and_session(
+    database_url: str,
+) -> tuple[AsyncEngine, async_sessionmaker[AsyncSession]]:
     """
     Create the async engine and session factory.
     echo is hardcoded False. SQLAlchemy would otherwise log parameter
@@ -63,7 +67,7 @@ def create_engine_and_session(database_url: str):
     return engine, session_factory
 
 
-async def get_db(request: Request):
+async def get_db(request: Request) -> AsyncIterator[AsyncSession]:
     """FastAPI dependency: yields a session from the app-level factory."""
     session_factory = request.app.state.session_factory
     async with session_factory() as session:

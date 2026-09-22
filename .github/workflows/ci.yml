@@ -233,8 +233,17 @@ jobs:
           sarif_file: trivy-${{ matrix.service }}.sarif
           category: trivy-${{ matrix.service }}
 
+      - name: Fail if CRITICAL/HIGH image vulnerabilities found
+        run: |
+          count=$(jq '[.runs[].results // [] | length] | add // 0' \
+            "trivy-${{ matrix.service }}.sarif")
+          if [ "$count" -gt 0 ]; then
+            echo "::error::Trivy found $count CRITICAL/HIGH vulnerabilities in ${{ matrix.service }}"
+            exit 1
+          fi
+
       - name: Push image
-        if: github.event_name != 'pull_request' && github.ref == 'refs/heads/main' || github.ref == 'refs/heads/dev'
+        if: github.event_name != 'pull_request' && (github.ref == 'refs/heads/main' || github.ref == 'refs/heads/dev')
         uses: docker/build-push-action@d08e5c354a6adb9ed34480a06d141179aa583294
         with:
           context: ${{ matrix.context }}

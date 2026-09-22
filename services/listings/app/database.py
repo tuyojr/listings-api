@@ -1,8 +1,10 @@
 import logging
+from collections.abc import AsyncIterator
 
 from fastapi import Request
 from sqlalchemy import text
 from sqlalchemy.ext.asyncio import (
+    AsyncEngine,
     AsyncSession,
     async_sessionmaker,
     create_async_engine,
@@ -34,7 +36,9 @@ def build_listing_migration_url() -> str:
     )
 
 
-def create_engine_and_session(database_url: str):
+def create_engine_and_session(
+    database_url: str,
+) -> tuple[AsyncEngine, async_sessionmaker[AsyncSession]]:
     engine = create_async_engine(
         database_url,
         pool_size=10,
@@ -52,7 +56,7 @@ def create_engine_and_session(database_url: str):
     return engine, session_factory
 
 
-async def get_db(request: Request):
+async def get_db(request: Request) -> AsyncIterator[AsyncSession]:
     session_factory = request.app.state.session_factory
     async with session_factory() as session:
         yield session
