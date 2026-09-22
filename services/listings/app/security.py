@@ -26,4 +26,11 @@ async def get_current_user_id(
 
     secret = get_secret("jwt_secret_key")
     payload = validate_access_token(credentials.credentials, secret, settings.JWT_ALGORITHM)
-    return UUID(payload["sub"])
+    sub = payload["sub"]
+    if not isinstance(sub, str):
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Invalid token subject",
+            headers={"WWW-Authenticate": "Bearer"},
+        )
+    return UUID(sub)

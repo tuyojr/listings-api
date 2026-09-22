@@ -1,5 +1,6 @@
 import logging
 from collections.abc import AsyncIterator
+from uuid import UUID
 
 from fastapi import Request
 from sqlalchemy import text
@@ -62,7 +63,7 @@ async def get_db(request: Request) -> AsyncIterator[AsyncSession]:
         yield session
 
 
-async def set_rls_user(session: AsyncSession, user_id):
+async def set_rls_user(session: AsyncSession, user_id: UUID) -> None:
     """
     Set the current user ID for RLS policies within this transaction.
     Uses set_config with is_local=true so the setting is transaction-scoped
