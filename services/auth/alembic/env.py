@@ -10,7 +10,7 @@ from sqlalchemy.ext.asyncio import async_engine_from_config
 
 from alembic import context
 
-from app.database import build_auth_database_url
+from app.database import build_auth_migration_url
 from app.models import Base
 
 config = context.config
@@ -22,7 +22,7 @@ target_metadata = Base.metadata
 
 def get_url() -> str:
     """Build the database URL from env vars + secret at runtime."""
-    return build_auth_database_url()
+    return build_auth_migration_url()
 
 
 def run_migrations_offline() -> None:
