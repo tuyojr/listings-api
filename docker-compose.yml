@@ -1,0 +1,160 @@
+version: "3.9"
+#  Real Estate Microservices: Local Development
+#
+#    • Each service has its own database and network.
+#    • Databases are on internal networks only.
+#    • Secrets are file-mounted.
+#    • The gateway is the only service exposed to the host.
+
+secrets:
+  auth_db_password:
+    file: ./secrets/auth_db_password.txt
+  listing_db_password:
+    file: ./secrets/listing_db_password.txt
+  auth_db_root_password:
+    file: ./secrets/auth_db_root_password.txt
+  listing_db_root_password:
+    file: ./secrets/listing_db_root_password.txt
+  jwt_secret_key:
+    file: ./secrets/jwt_secret_key.txt
+
+networks:
+  frontend:
+    driver: bridge
+  auth-internal:
+    driver: bridge
+    internal: true
+  listing-internal:
+    driver: bridge
+    internal: true
+
+volumes:
+  auth-pgdata:
+  listing-pgdata:
+
+services:
+  api-gateway:
+    image: nginx:1.27-alpine
+    ports:
+      - "127.0.0.1:80:80"
+    volumes:
+      - ./gateway/nginx.conf:/etc/nginx/nginx.conf:ro
+    networks:
+      - frontend
+    depends_on:
+      auth-service:
+        condition: service_healthy
+      listings-service:
+        condition: service_healthy
+    restart: unless-stopped
+
+  auth-service:
+    build:
+      context: .
+      dockerfile: services/auth/Dockerfile
+    environment:
+      ENV: development
+      AUTH_DB_HOST: auth-db
+      AUTH_DB_PORT: "5432"
+      AUTH_DB_NAME: auth
+      AUTH_DB_USER: auth_rw
+      JWT_ALGORITHM: HS256
+      ACCESS_TOKEN_EXPIRE_MINUTES: "30"
+      REFRESH_TOKEN_EXPIRE_DAYS: "7"
+      ARGON2_TIME_COST: "2"
+      ARGON2_MEMORY_COST: "19456"
+      ARGON2_PARALLELISM: "1"
+    secrets:
+      - auth_db_password
+      - jwt_secret_key
+    networks:
+      - frontend
+      - auth-internal
+    depends_on:
+      auth-db:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8000/health')"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+      start_period: 20s
+    restart: unless-stopped
+    deploy:
+      resources:
+        limits:
+          cpus: "1.0"
+          memory: 512M
+
+  auth-db:
+    image: postgres:18-alpine
+    environment:
+      POSTGRES_DB: auth
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD_FILE: /run/secrets/auth_db_root_password
+    secrets:
+      - auth_db_root_password
+    volumes:
+      - auth-pgdata:/var/lib/postgresql/data
+      - ./services/auth/db/init.sql:/docker-entrypoint-initdb.d/init.sql:ro
+    networks:
+      - auth-internal
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres -d auth"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+    restart: unless-stopped
+
+  listings-service:
+    build:
+      context: .
+      dockerfile: services/listings/Dockerfile
+    environment:
+      ENV: development
+      LISTING_DB_HOST: listing-db
+      LISTING_DB_PORT: "5432"
+      LISTING_DB_NAME: listings
+      LISTING_DB_USER: listing_rw
+      JWT_ALGORITHM: HS256
+    secrets:
+      - listing_db_password
+      - jwt_secret_key
+    networks:
+      - frontend
+      - listing-internal
+    depends_on:
+      listing-db:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8001/health')"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+      start_period: 20s
+    restart: unless-stopped
+    deploy:
+      resources:
+        limits:
+          cpus: "2.0"
+          memory: 1G
+
+  listing-db:
+    image: postgres:18-alpine
+    environment:
+      POSTGRES_DB: listings
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD_FILE: /run/secrets/listing_db_root_password
+    secrets:
+      - listing_db_root_password
+    volumes:
+      - listing-pgdata:/var/lib/postgresql/data
+      - ./services/listings/db/init.sql:/docker-entrypoint-initdb.d/init.sql:ro
+    networks:
+      - listing-internal
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres -d listings"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+    restart: unless-stopped
