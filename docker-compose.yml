@@ -94,6 +94,7 @@ services:
       POSTGRES_PASSWORD_FILE: /run/secrets/auth_db_root_password
     secrets:
       - auth_db_root_password
+      - auth_db_password
     volumes:
       - auth-pgdata:/var/lib/postgresql/data
       - ./services/auth/db/init.sql:/docker-entrypoint-initdb.d/01-init.sql:ro
@@ -148,6 +149,7 @@ services:
       POSTGRES_PASSWORD_FILE: /run/secrets/listing_db_root_password
     secrets:
       - listing_db_root_password
+      - listing_db_password
     volumes:
       - listing-pgdata:/var/lib/postgresql/data
       - ./services/listings/db/init.sql:/docker-entrypoint-initdb.d/init.sql:ro
