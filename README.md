@@ -1,6 +1,6 @@
-# Real Estate Microservices
+# Listings API
 
-Isolated microservices for real estate listings. Each service owns its own database, runs in its own container, and communicates only through the gateway. Designed so a failure in one service does not affect the other.
+Isolated microservices for property listings. Each service owns its own database, runs in its own container, and communicates only through the gateway. Designed so a failure in one service does not affect the other.
 
 ## Architecture
 
