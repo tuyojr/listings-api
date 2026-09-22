@@ -96,7 +96,8 @@ services:
       - auth_db_root_password
     volumes:
       - auth-pgdata:/var/lib/postgresql/data
-      - ./services/auth/db/init.sql:/docker-entrypoint-initdb.d/init.sql:ro
+      - ./services/auth/db/init.sql:/docker-entrypoint-initdb.d/01-init.sql:ro
+      - ./services/auth/db/init.sh:/docker-entrypoint-initdb.d/02-init.sh:ro
     networks:
       - auth-internal
     healthcheck:
