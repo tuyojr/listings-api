@@ -54,6 +54,7 @@ services:
       dockerfile: services/auth/Dockerfile
     environment:
       ENV: development
+      DB_SSL_MODE: disable
       AUTH_DB_HOST: auth-db
       AUTH_DB_PORT: "5432"
       AUTH_DB_NAME: auth
@@ -114,6 +115,7 @@ services:
       dockerfile: services/listings/Dockerfile
     environment:
       ENV: development
+      DB_SSL_MODE: disable
       LISTING_DB_HOST: listing-db
       LISTING_DB_PORT: "5432"
       LISTING_DB_NAME: listings

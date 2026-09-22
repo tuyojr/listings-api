@@ -73,7 +73,9 @@ def build_database_url(
     user = os.environ[user_env]
     password = get_secret(password_secret)
 
+    ssl_mode = os.environ.get("DB_SSL_MODE", "require")
+
     return (
         f"postgresql+asyncpg://{user}:{password}@{host}:{port}/{dbname}"
-        f"?ssl=require"
+        f"?ssl={ssl_mode}"
     )
