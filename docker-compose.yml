@@ -1,4 +1,4 @@
-version: "3.9"
+# version: "3.9"
 #  Real Estate Microservices: Local Development
 #
 #    • Each service has its own database and network.
@@ -96,7 +96,7 @@ services:
       - auth_db_root_password
       - auth_db_password
     volumes:
-      - auth-pgdata:/var/lib/postgresql/data
+      - auth-pgdata:/var/lib/postgresql
       - ./services/auth/db/init.sql:/docker-entrypoint-initdb.d/01-init.sql:ro
       - ./services/auth/db/init.sh:/docker-entrypoint-initdb.d/02-init.sh:ro
     networks:
@@ -151,7 +151,7 @@ services:
       - listing_db_root_password
       - listing_db_password
     volumes:
-      - listing-pgdata:/var/lib/postgresql/data
+      - listing-pgdata:/var/lib/postgresql
       - ./services/listings/db/init.sql:/docker-entrypoint-initdb.d/init.sql:ro
     networks:
       - listing-internal
