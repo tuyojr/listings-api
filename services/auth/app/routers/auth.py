@@ -87,7 +87,10 @@ async def login(body: UserLogin, db: DB) -> TokenResponse:
 async def refresh(body: RefreshRequest, db: DB) -> TokenResponse:
     secret = get_secret("jwt_secret_key")
     payload = validate_refresh_token(body.refresh_token, secret, settings.JWT_ALGORITHM)
-    user_id = UUID(payload["sub"])
+    sub = payload["sub"]
+    if not isinstance(sub, str):
+        raise HTTPException(status_code=401, detail="Invalid token subject")
+    user_id = UUID(sub)
 
     token_hash = hash_refresh_token(body.refresh_token)
     result = await db.execute(
