@@ -73,14 +73,16 @@ jobs:
       - name: Ruff format check
         run: ruff format --check .
 
-      - name: mypy
+      - name: Install runtime deps for type stubs
         run: |
           pip install -r services/auth/requirements.txt
           pip install -r services/listings/requirements.txt
-          mypy --config-file=pyproject.toml \
-            services/auth/app \
-            services/listings/app \
-            shared
+
+      - name: mypy (auth)
+        run: mypy --config-file=pyproject.toml services/auth/app shared
+
+      - name: mypy (listings)
+        run: mypy --config-file=pyproject.toml services/listings/app shared
 
       - name: Bandit
         run: bandit -c pyproject.toml -r services shared -ll
