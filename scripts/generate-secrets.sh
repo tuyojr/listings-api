@@ -13,9 +13,8 @@ generate() {
         echo "  ✓ $name.txt already exists — skipping"
         return
     fi
-    # 48 bytes of base64 = 64 chars, no newline
     openssl rand -base64 48 | tr -d '\n' > "$file"
-    chmod 600 "$file"
+    chmod 644 "$file"
     echo "  ✓ Generated $name.txt"
 }
 
