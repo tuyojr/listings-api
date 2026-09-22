@@ -4,13 +4,13 @@ Revision ID: 0001
 Revises:
 Create Date: 2026-09-22
 """
-from typing import Sequence, Union
-from alembic import op
+
 import sqlalchemy as sa
+from alembic import op
 from sqlalchemy.dialects.postgresql import UUID
 
 revision: str = "0001"
-down_revision: Union[str, None] = None
+down_revision: str | None = None
 branch_labels = None
 depends_on = None
 
@@ -25,7 +25,11 @@ def upgrade() -> None:
         sa.Column(
             "listing_type",
             sa.Enum(
-                "house", "apartment", "condo", "townhouse", "land",
+                "house",
+                "apartment",
+                "condo",
+                "townhouse",
+                "land",
                 name="listing_type",
             ),
             nullable=False,
@@ -43,9 +47,7 @@ def upgrade() -> None:
             sa.Enum("monthly", "annual", name="price_period"),
             nullable=False,
         ),
-        sa.Column(
-            "is_available", sa.Boolean(), nullable=False, server_default=sa.true()
-        ),
+        sa.Column("is_available", sa.Boolean(), nullable=False, server_default=sa.true()),
         sa.Column(
             "created_at",
             sa.DateTime(timezone=True),

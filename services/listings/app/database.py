@@ -1,15 +1,14 @@
 import logging
-from sqlalchemy.ext.asyncio import (
-    create_async_engine,
-    async_sessionmaker,
-    AsyncSession,
-)
-from sqlalchemy import text
-
-from shared.secrets import build_database_url
-from app.config import settings
 
 from fastapi import Request
+from sqlalchemy import text
+from sqlalchemy.ext.asyncio import (
+    AsyncSession,
+    async_sessionmaker,
+    create_async_engine,
+)
+
+from shared.secret_store import build_database_url
 
 logger = logging.getLogger(__name__)
 

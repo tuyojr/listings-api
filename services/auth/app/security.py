@@ -1,13 +1,13 @@
-from datetime import datetime, timedelta, timezone
-from uuid import UUID
 import hashlib
+from datetime import UTC, datetime, timedelta
+from uuid import UUID
+
 import jwt
 from pwdlib import PasswordHash
 from pwdlib.hashers.argon2 import Argon2Hasher
 
 from app.config import settings
-from shared.secrets import get_secret
-
+from shared.secret_store import get_secret
 
 # ─── Password hashing ───
 _password_hasher = PasswordHash(
@@ -35,7 +35,7 @@ def _get_jwt_secret() -> str:
 
 
 def create_access_token(user_id: UUID) -> str:
-    now = datetime.now(timezone.utc)
+    now = datetime.now(UTC)
     payload = {
         "sub": str(user_id),
         "iat": now,
@@ -46,7 +46,7 @@ def create_access_token(user_id: UUID) -> str:
 
 
 def create_refresh_token(user_id: UUID) -> str:
-    now = datetime.now(timezone.utc)
+    now = datetime.now(UTC)
     payload = {
         "sub": str(user_id),
         "iat": now,

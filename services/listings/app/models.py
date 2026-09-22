@@ -1,26 +1,29 @@
+import enum
+import uuid
+
 from sqlalchemy import (
-    Column,
-    Integer,
-    String,
-    Numeric,
     Boolean,
+    Column,
     DateTime,
-    Text,
-    Enum as SAEnum,
     Index,
+    Integer,
+    Numeric,
+    String,
+    Text,
+)
+from sqlalchemy import (
+    Enum as SAEnum,
 )
 from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.orm import DeclarativeBase
 from sqlalchemy.sql import func
-import enum
-import uuid
 
 
 class Base(DeclarativeBase):
     pass
 
 
-class ListingType(str, enum.Enum):
+class ListingType(enum.StrEnum):
     HOUSE = "house"
     APARTMENT = "apartment"
     CONDO = "condo"
@@ -28,7 +31,7 @@ class ListingType(str, enum.Enum):
     LAND = "land"
 
 
-class PricePeriod(str, enum.Enum):
+class PricePeriod(enum.StrEnum):
     MONTHLY = "monthly"
     ANNUAL = "annual"
 

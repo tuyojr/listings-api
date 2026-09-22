@@ -3,7 +3,9 @@ Local JWT validation. Imported by the listings service (and any future service)
 to validate tokens issued by the auth service WITHOUT calling the auth service.
 The JWT secret is loaded from the secret store at startup.
 """
+
 import logging
+
 import jwt
 from fastapi import HTTPException, status
 
@@ -12,14 +14,15 @@ logger = logging.getLogger(__name__)
 
 def decode_token(token: str, secret: str, algorithm: str = "HS256") -> dict:
     """
-    Decode and validate a JWT. The algorithm is PINNED by the caller to prevent alg=none and
+    Decode and validate a JWT. The algorithm is PINNED by the caller —
+    never read from the token header. This prevents alg=none and
     algorithm-confusion attacks.
     """
     try:
         payload = jwt.decode(
             token,
             secret,
-            algorithms=[algorithm],
+            algorithms=[algorithm],  # PINNED
             options={
                 "require": ["exp", "iat", "sub", "type"],
                 "verify_exp": True,
@@ -27,19 +30,19 @@ def decode_token(token: str, secret: str, algorithm: str = "HS256") -> dict:
                 "verify_signature": True,
             },
         )
-    except jwt.ExpiredSignatureError:
+    except jwt.ExpiredSignatureError as exc:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Token expired",
             headers={"WWW-Authenticate": "Bearer"},
-        )
+        ) from exc
     except jwt.InvalidTokenError as exc:
         logger.warning("Invalid JWT: %s", exc)
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Invalid token",
             headers={"WWW-Authenticate": "Bearer"},
-        )
+        ) from exc
     return payload
 
 

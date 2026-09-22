@@ -1,9 +1,9 @@
-from contextlib import asynccontextmanager
 import logging
+from contextlib import asynccontextmanager
 
-from fastapi import FastAPI, Request, HTTPException
-from fastapi.responses import JSONResponse
+from fastapi import FastAPI, HTTPException, Request
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import JSONResponse
 from sqlalchemy import text
 
 from app.config import settings
@@ -30,9 +30,7 @@ async def lifespan(app: FastAPI):
         settings.AUTH_DB_USER,
     )
 
-    app.state.engine, app.state.session_factory = create_engine_and_session(
-        database_url
-    )
+    app.state.engine, app.state.session_factory = create_engine_and_session(database_url)
 
     yield
 
@@ -72,10 +70,11 @@ async def unhandled_exception_handler(request: Request, exc: Exception):
 
 @app.get("/health")
 async def health():
+    """Liveness + readiness probe that verifies DB connectivity."""
     try:
         async with app.state.session_factory() as session:
             await session.execute(text("SELECT 1"))
     except Exception as exc:
         logging.getLogger(__name__).error("Health check failed: %s", exc)
-        raise HTTPException(status_code=503, detail="Database unreachable")
+        raise HTTPException(status_code=503, detail="Database unreachable") from exc
     return {"status": "ok", "service": "auth"}

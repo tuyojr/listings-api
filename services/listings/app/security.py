@@ -1,13 +1,15 @@
 """
 The listings service validates tokens locally using the shared JWT secret.
 """
+
 from uuid import UUID
+
 from fastapi import Depends, HTTPException, status
-from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
+from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 
 from app.config import settings
-from shared.secrets import get_secret
 from shared.jwt_utils import validate_access_token
+from shared.secret_store import get_secret
 
 security_scheme = HTTPBearer(auto_error=False)
 
@@ -23,7 +25,5 @@ async def get_current_user_id(
         )
 
     secret = get_secret("jwt_secret_key")
-    payload = validate_access_token(
-        credentials.credentials, secret, settings.JWT_ALGORITHM
-    )
+    payload = validate_access_token(credentials.credentials, secret, settings.JWT_ALGORITHM)
     return UUID(payload["sub"])

@@ -1,13 +1,14 @@
-from pydantic import BaseModel, Field
-from typing import Optional
 from datetime import datetime
 from uuid import UUID
+
+from pydantic import BaseModel, Field
+
 from app.models import ListingType, PricePeriod
 
 
 class ListingCreate(BaseModel):
     title: str = Field(min_length=1, max_length=200)
-    description: Optional[str] = Field(None, max_length=5000)
+    description: str | None = Field(None, max_length=5000)
     listing_type: ListingType
     address: str = Field(min_length=1, max_length=500)
     city: str = Field(min_length=1, max_length=100)
@@ -15,32 +16,32 @@ class ListingCreate(BaseModel):
     postal_code: str = Field(min_length=1, max_length=20)
     bedrooms: int = Field(ge=0, le=100)
     bathrooms: float = Field(ge=0, le=100)
-    square_feet: Optional[int] = Field(None, ge=0, le=1_000_000)
+    square_feet: int | None = Field(None, ge=0, le=1_000_000)
     price: float = Field(gt=0, le=1_000_000_000)
     price_period: PricePeriod
 
 
 class ListingUpdate(BaseModel):
-    title: Optional[str] = Field(None, min_length=1, max_length=200)
-    description: Optional[str] = Field(None, max_length=5000)
-    listing_type: Optional[ListingType] = None
-    address: Optional[str] = Field(None, min_length=1, max_length=500)
-    city: Optional[str] = Field(None, min_length=1, max_length=100)
-    state: Optional[str] = Field(None, min_length=1, max_length=100)
-    postal_code: Optional[str] = Field(None, min_length=1, max_length=20)
-    bedrooms: Optional[int] = Field(None, ge=0, le=100)
-    bathrooms: Optional[float] = Field(None, ge=0, le=100)
-    square_feet: Optional[int] = Field(None, ge=0, le=1_000_000)
-    price: Optional[float] = Field(None, gt=0, le=1_000_000_000)
-    price_period: Optional[PricePeriod] = None
-    is_available: Optional[bool] = None
+    title: str | None = Field(None, min_length=1, max_length=200)
+    description: str | None = Field(None, max_length=5000)
+    listing_type: ListingType | None = None
+    address: str | None = Field(None, min_length=1, max_length=500)
+    city: str | None = Field(None, min_length=1, max_length=100)
+    state: str | None = Field(None, min_length=1, max_length=100)
+    postal_code: str | None = Field(None, min_length=1, max_length=20)
+    bedrooms: int | None = Field(None, ge=0, le=100)
+    bathrooms: float | None = Field(None, ge=0, le=100)
+    square_feet: int | None = Field(None, ge=0, le=1_000_000)
+    price: float | None = Field(None, gt=0, le=1_000_000_000)
+    price_period: PricePeriod | None = None
+    is_available: bool | None = None
 
 
 class ListingResponse(BaseModel):
     id: UUID
     owner_id: UUID
     title: str
-    description: Optional[str]
+    description: str | None
     listing_type: ListingType
     address: str
     city: str
@@ -48,7 +49,7 @@ class ListingResponse(BaseModel):
     postal_code: str
     bedrooms: int
     bathrooms: float
-    square_feet: Optional[int]
+    square_feet: int | None
     price: float
     price_period: PricePeriod
     is_available: bool

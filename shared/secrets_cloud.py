@@ -11,6 +11,7 @@ Design principles:
   • Secrets are cached in process memory for the process lifetime.
   • Rotating a secret requires a new container deployment (fresh process) OR the caller can bypass the cache with cache=False.
 """
+
 from __future__ import annotations
 
 import logging
@@ -18,6 +19,7 @@ import os
 from functools import lru_cache
 
 logger = logging.getLogger(__name__)
+
 
 def _is_cloud_run() -> bool:
     """Cloud Run sets K_SERVICE on every container instance."""
@@ -28,6 +30,7 @@ def _is_ecs() -> bool:
     """ECS Fargate sets ECS_CONTAINER_METADATA_URI_V4."""
     return os.getenv("ECS_CONTAINER_METADATA_URI_V4") is not None
 
+
 def _get_gcp_secret(secret_id: str, version: str = "latest") -> str:
     """
     Retrieve a secret from GCP Secret Manager.
@@ -37,8 +40,8 @@ def _get_gcp_secret(secret_id: str, version: str = "latest") -> str:
     The service account must have roles/secretmanager.secretAccessor on the
     specific secret ARN. This is granted at the secret level.
     """
-    from google.cloud import secretmanager
     from google.api_core import exceptions as gcp_exceptions
+    from google.cloud import secretmanager
 
     project_id = os.environ.get("GCP_PROJECT_ID")
     if not project_id:
@@ -71,6 +74,7 @@ def _get_gcp_secret(secret_id: str, version: str = "latest") -> str:
 
     return response.payload.data.decode("UTF-8")
 
+
 def _get_aws_secret(secret_id: str) -> str:
     """
     Retrieve a secret from AWS Secrets Manager.
@@ -86,13 +90,11 @@ def _get_aws_secret(secret_id: str) -> str:
     so no JSON parsing is needed here.
     """
     import boto3
-    from botocore.exceptions import ClientError, BotoCoreError
+    from botocore.exceptions import BotoCoreError, ClientError
 
     region = os.environ.get("AWS_REGION") or os.environ.get("AWS_DEFAULT_REGION")
     if not region:
-        raise RuntimeError(
-            "AWS_REGION is not set. ECS deployments must set this env var."
-        )
+        raise RuntimeError("AWS_REGION is not set. ECS deployments must set this env var.")
 
     try:
         client = boto3.client(
@@ -107,42 +109,34 @@ def _get_aws_secret(secret_id: str) -> str:
         response = client.get_secret_value(SecretId=secret_id)
     except ClientError as exc:
         error_code = exc.response.get("Error", {}).get("Code", "Unknown")
-        logger.error(
-            "Secrets Manager error for %s: %s", secret_id, error_code
-        )
+        logger.error("Secrets Manager error for %s: %s", secret_id, error_code)
         if error_code == "AccessDeniedException":
             raise RuntimeError(
                 f"Task role lacks access to secret '{secret_id}'. "
                 f"Grant secretsmanager:GetSecretValue on the secret ARN."
             ) from exc
         if error_code == "ResourceNotFoundException":
-            raise RuntimeError(
-                f"Secret '{secret_id}' does not exist in Secrets Manager."
-            ) from exc
-        raise RuntimeError(
-            f"Failed to retrieve secret '{secret_id}' ({error_code})."
-        ) from exc
+            raise RuntimeError(f"Secret '{secret_id}' does not exist in Secrets Manager.") from exc
+        raise RuntimeError(f"Failed to retrieve secret '{secret_id}' ({error_code}).") from exc
     except BotoCoreError as exc:
         logger.error("Secrets Manager transport error for %s: %s", secret_id, exc)
-        raise RuntimeError(
-            f"Could not reach Secrets Manager to retrieve '{secret_id}'."
-        ) from exc
+        raise RuntimeError(f"Could not reach Secrets Manager to retrieve '{secret_id}'.") from exc
 
     secret = response.get("SecretString")
     if secret is None:
         raise RuntimeError(
-            f"Secret '{secret_id}' has no SecretString. "
-            f"Binary secrets are not supported."
+            f"Secret '{secret_id}' has no SecretString. Binary secrets are not supported."
         )
-    
+
     return secret
+
 
 @lru_cache(maxsize=32)
 def get_cloud_secret(name: str) -> str:
     """
     Retrieve a secret by name from the cloud provider detected at runtime.
 
-    Called by shared/secrets.py::get_secret() when ENV=production.
+    Called by shared/secret_store.py::get_secret() when ENV=production.
     The @lru_cache ensures the secret is fetched once per process, not per
     request. On rotation, redeploy the service to spawn a fresh process, or
     call get_cloud_secret.cache_clear() and re-fetch.

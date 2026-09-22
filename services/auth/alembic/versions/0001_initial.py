@@ -4,13 +4,13 @@ Revision ID: 0001
 Revises:
 Create Date: 2026-09-22
 """
-from typing import Sequence, Union
-from alembic import op
+
 import sqlalchemy as sa
+from alembic import op
 from sqlalchemy.dialects.postgresql import UUID
 
 revision: str = "0001"
-down_revision: Union[str, None] = None
+down_revision: str | None = None
 branch_labels = None
 depends_on = None
 
@@ -50,9 +50,7 @@ def upgrade() -> None:
             nullable=False,
         ),
     )
-    op.create_index(
-        "ix_refresh_tokens_user_id", "refresh_tokens", ["user_id"]
-    )
+    op.create_index("ix_refresh_tokens_user_id", "refresh_tokens", ["user_id"])
     op.create_index(
         "ix_refresh_tokens_token_hash",
         "refresh_tokens",

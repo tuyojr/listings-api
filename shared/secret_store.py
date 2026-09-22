@@ -9,8 +9,9 @@ Cloud (Cloud Run / ECS):
     Override get_secret() to call the cloud provider's secret manager API
     using the workload identity. The function signature stays the same.
 """
-import os
+
 import logging
+import os
 from functools import lru_cache
 
 logger = logging.getLogger(__name__)
@@ -27,7 +28,7 @@ def _read_file_secret(name: str) -> str:
             f"Run scripts/generate-secrets.sh and ensure docker-compose.yml "
             f"grants this service access to the secret."
         )
-    with open(path, "r", encoding="utf-8") as f:
+    with open(path, encoding="utf-8") as f:
         value = f.read().strip()
     if not value:
         raise RuntimeError(f"Secret file is empty: {path}")
@@ -49,6 +50,7 @@ def get_secret(name: str) -> str:
     if os.getenv("ENV") == "production":
         # Cloud path — import lazily so boto3/google-cloud aren't needed locally
         from shared.secrets_cloud import get_cloud_secret
+
         return get_cloud_secret(name)
 
     logger.info("Loading secret from file: %s", name)
@@ -75,7 +77,4 @@ def build_database_url(
 
     ssl_mode = os.environ.get("DB_SSL_MODE", "require")
 
-    return (
-        f"postgresql+asyncpg://{user}:{password}@{host}:{port}/{dbname}"
-        f"?ssl={ssl_mode}"
-    )
+    return f"postgresql+asyncpg://{user}:{password}@{host}:{port}/{dbname}?ssl={ssl_mode}"
