@@ -92,7 +92,7 @@ async def bootstrap(service: str) -> None:
         database=dbname,
         user="postgres",
         password=master_password,
-        ssl=True,
+        ssl=os.environ.get("DB_SSL_MODE", "require"),
     )
     try:
         await conn.execute(f"""
