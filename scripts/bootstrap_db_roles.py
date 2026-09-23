@@ -107,6 +107,7 @@ async def bootstrap(service: str) -> None:
         await conn.execute(f"GRANT CONNECT ON DATABASE {dbname} TO {migrate_user};")
         await conn.execute(f"GRANT USAGE, CREATE ON SCHEMA public TO {migrate_user};")
         await conn.execute(f"ALTER SCHEMA public OWNER TO {migrate_user};")
+        await conn.execute(f"GRANT {migrate_user} TO postgres;")
 
         await conn.execute(f"""
             DO $$
