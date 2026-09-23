@@ -39,8 +39,10 @@ jobs:
           filters: |
             auth:
               - 'services/auth/**'
+              - 'scripts/**'
             listings:
               - 'services/listings/**'
+              - 'scripts/**'
             shared:
               - 'shared/**'
             ci:
