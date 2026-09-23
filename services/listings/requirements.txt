@@ -11,3 +11,6 @@ alembic==1.18.5
 
 # Security: JWT only
 pyjwt[crypto]==2.13.0
+
+# AWS Secrets Manager client (shared/secrets_cloud.py, only imported when ENV=production)
+boto3==1.43.100

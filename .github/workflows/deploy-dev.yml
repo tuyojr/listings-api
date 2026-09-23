@@ -1,0 +1,117 @@
+name: Deploy (dev)
+
+on:
+  workflow_run:
+    workflows: ["CI"]
+    types: [completed]
+    branches: [dev]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+env:
+  AWS_REGION: ${{ vars.AWS_REGION }}
+  ECS_CLUSTER: listings-dev-cluster
+  GHCR_REGISTRY: ghcr.io
+
+jobs:
+  deploy:
+    name: Deploy ${{ matrix.service }}
+    runs-on: ubuntu-24.04
+    if: github.event_name == 'workflow_dispatch' || github.event.workflow_run.conclusion == 'success'
+    environment:
+      name: dev
+    concurrency:
+      group: deploy-dev-${{ matrix.service }}
+      cancel-in-progress: false
+    permissions:
+      contents: read
+      id-token: write
+      packages: read
+    strategy:
+      fail-fast: false
+      matrix:
+        service: [auth-service, listings-service]
+    steps:
+      - name: Resolve commit SHA to deploy
+        id: sha
+        run: |
+          FULL_SHA="${{ github.event_name == 'workflow_dispatch' && github.sha || github.event.workflow_run.head_sha }}"
+          echo "full=${FULL_SHA}" >> "$GITHUB_OUTPUT"
+          echo "short=${FULL_SHA:0:7}" >> "$GITHUB_OUTPUT"
+
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@e1253824e5c10ff9df46874f81ed3ec929e19cfd # v6.3.0
+        with:
+          role-to-assume: ${{ secrets.AWS_DEPLOY_ROLE_ARN }}
+          aws-region: ${{ env.AWS_REGION }}
+          role-session-name: gha-deploy-dev-${{ matrix.service }}-${{ github.run_id }}
+          mask-aws-account-id: true
+          role-duration-seconds: 1200
+
+      - name: Log in to Amazon ECR
+        id: ecr-login
+        uses: aws-actions/amazon-ecr-login@v2.1.7
+
+      - name: Log in to GHCR
+        uses: docker/login-action@v4.6.0
+        with:
+          registry: ${{ env.GHCR_REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      # CI already built, scanned, and pushed this exact image to GHCR
+      # (tagged sha-<short>) on the commit being deployed. Pulling and
+      # re-pushing it to ECR promotes the already-scanned artifact instead
+      # of rebuilding it, so what gets deployed is what CI actually tested.
+      - name: Pull from GHCR, retag, and push to ECR
+        id: image
+        env:
+          GHCR_IMAGE: ${{ env.GHCR_REGISTRY }}/${{ github.repository }}/${{ matrix.service }}:sha-${{ steps.sha.outputs.short }}
+          ECR_IMAGE: ${{ steps.ecr-login.outputs.registry }}/${{ matrix.service }}:${{ steps.sha.outputs.full }}
+        run: |
+          docker pull "$GHCR_IMAGE"
+          docker tag "$GHCR_IMAGE" "$ECR_IMAGE"
+          docker push "$ECR_IMAGE"
+          echo "uri=${ECR_IMAGE}" >> "$GITHUB_OUTPUT"
+
+      # The task definition is Terraform-managed (family = service name),
+      # but Terraform ignores container_definitions/task_definition after
+      # the first apply specifically so this step can register new
+      # revisions without Terraform reverting them on the next plan.
+      - name: Register new task definition revision
+        id: task-def
+        env:
+          IMAGE_URI: ${{ steps.image.outputs.uri }}
+        run: |
+          set -euo pipefail
+          aws ecs describe-task-definition \
+            --task-definition "${{ matrix.service }}" \
+            --query 'taskDefinition' > current-task-def.json
+
+          jq --arg IMAGE "${IMAGE_URI}" \
+            '.containerDefinitions[0].image = $IMAGE
+             | del(.taskDefinitionArn, .revision, .status, .requiresAttributes,
+                   .compatibilities, .registeredAt, .registeredBy)' \
+            current-task-def.json > new-task-def.json
+
+          NEW_ARN=$(aws ecs register-task-definition \
+            --cli-input-json file://new-task-def.json \
+            --query 'taskDefinition.taskDefinitionArn' \
+            --output text)
+          echo "arn=${NEW_ARN}" >> "$GITHUB_OUTPUT"
+
+      - name: Update service
+        run: |
+          aws ecs update-service \
+            --cluster "${{ env.ECS_CLUSTER }}" \
+            --service "${{ matrix.service }}" \
+            --task-definition "${{ steps.task-def.outputs.arn }}" \
+            > /dev/null
+
+      - name: Wait for service to stabilize
+        run: |
+          aws ecs wait services-stable \
+            --cluster "${{ env.ECS_CLUSTER }}" \
+            --services "${{ matrix.service }}"
