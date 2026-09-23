@@ -69,8 +69,15 @@ async def unhandled_exception_handler(request: Request, exc: Exception) -> JSONR
 
 
 @app.get("/health")
+@app.get("/api/health")
 async def health() -> dict[str, str]:
-    """Liveness + readiness probe that verifies DB connectivity."""
+    """Liveness + readiness probe that verifies DB connectivity.
+
+    Registered at both paths: bare /health is what the container's own
+    Docker healthcheck and the ALB target group hit directly (bypassing
+    the listener's path-based routing); /api/health is reachable
+    externally through the ALB, which only forwards /api/*.
+    """
     try:
         async with app.state.session_factory() as session:
             await session.execute(text("SELECT 1"))
