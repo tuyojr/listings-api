@@ -72,7 +72,11 @@ jobs:
           ECR_IMAGE: ${{ steps.ecr-login.outputs.registry }}/${{ matrix.service }}:${{ steps.sha.outputs.full }}
           ECR_LATEST: ${{ steps.ecr-login.outputs.registry }}/${{ matrix.service }}:latest
         run: |
-          docker pull "$GHCR_IMAGE"
+          for i in 1 2 3 4 5; do
+            docker pull "$GHCR_IMAGE" && break
+            echo "pull failed (attempt ${i}/5), retrying in 10s..."
+            sleep 10
+          done
           docker tag "$GHCR_IMAGE" "$ECR_IMAGE"
           docker tag "$GHCR_IMAGE" "$ECR_LATEST"
           docker push "$ECR_IMAGE"
