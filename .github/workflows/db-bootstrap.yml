@@ -52,24 +52,10 @@ jobs:
           echo "subnets=${SUBNETS}" >> "$GITHUB_OUTPUT"
           echo "security_group=${SG}" >> "$GITHUB_OUTPUT"
 
-      - name: Resolve currently deployed image
-        id: image
-        run: |
-          set -euo pipefail
-          TASK_DEF_ARN=$(aws ecs describe-services \
-            --cluster "${{ env.ECS_CLUSTER }}" \
-            --services "${{ inputs.service }}-service" \
-            --query 'services[0].taskDefinition' --output text)
-          IMAGE_URI=$(aws ecs describe-task-definition \
-            --task-definition "${TASK_DEF_ARN}" \
-            --query 'taskDefinition.containerDefinitions[0].image' --output text)
-          if [ -z "$IMAGE_URI" ] || [ "$IMAGE_URI" = "None" ]; then
-            echo "::error::Could not resolve the currently deployed image for ${{ inputs.service }}-service"
-            exit 1
-          fi
-          echo "uri=${IMAGE_URI}" >> "$GITHUB_OUTPUT"
-          echo "Using image: ${IMAGE_URI}"
-
+      # The db-bootstrap task definition's image is tagged :latest, kept
+      # up to date by deploy-dev.yml on every push to main - ECS resolves
+      # the tag to whatever it currently points at when the task starts,
+      # so this always runs against the currently deployed image.
       - name: Run bootstrap task
         id: run
         run: |
@@ -79,7 +65,6 @@ jobs:
             --task-definition "listings-dev-db-bootstrap-${{ inputs.service }}" \
             --launch-type FARGATE \
             --network-configuration "awsvpcConfiguration={subnets=[${{ steps.net.outputs.subnets }}],securityGroups=[${{ steps.net.outputs.security_group }}],assignPublicIp=DISABLED}" \
-            --overrides "{\"containerOverrides\":[{\"name\":\"db-bootstrap-${{ inputs.service }}\",\"image\":\"${{ steps.image.outputs.uri }}\"}]}" \
             --query 'tasks[0].taskArn' --output text)
           if [ -z "$TASK_ARN" ] || [ "$TASK_ARN" = "None" ]; then
             echo "::error::ecs run-task did not return a task ARN"
