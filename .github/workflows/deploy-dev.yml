@@ -65,12 +65,13 @@ jobs:
       # (tagged sha-<short>) on the commit being deployed. Pulling and
       # re-pushing it to ECR promotes the already-scanned artifact instead
       # of rebuilding it, so what gets deployed is what CI actually tested.
+      # No :latest tag: the ECR repos are immutable, so a movable tag can
+      # only ever be pushed once.
       - name: Pull from GHCR, retag, and push to ECR
         id: image
         env:
           GHCR_IMAGE: ${{ env.GHCR_REGISTRY }}/${{ github.repository }}/${{ matrix.service }}:sha-${{ steps.sha.outputs.short }}
           ECR_IMAGE: ${{ steps.ecr-login.outputs.registry }}/${{ matrix.service }}:${{ steps.sha.outputs.full }}
-          ECR_LATEST: ${{ steps.ecr-login.outputs.registry }}/${{ matrix.service }}:latest
         run: |
           for i in 1 2 3 4 5; do
             docker pull "$GHCR_IMAGE" && break
@@ -78,9 +79,7 @@ jobs:
             sleep 10
           done
           docker tag "$GHCR_IMAGE" "$ECR_IMAGE"
-          docker tag "$GHCR_IMAGE" "$ECR_LATEST"
           docker push "$ECR_IMAGE"
-          docker push "$ECR_LATEST"
           echo "uri=${ECR_IMAGE}" >> "$GITHUB_OUTPUT"
 
       # The task definition is Terraform-managed (family = service name),

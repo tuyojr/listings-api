@@ -52,17 +52,59 @@ jobs:
           echo "subnets=${SUBNETS}" >> "$GITHUB_OUTPUT"
           echo "security_group=${SG}" >> "$GITHUB_OUTPUT"
 
-      # The db-bootstrap task definition's image is tagged :latest, kept
-      # up to date by deploy-dev.yml on every push to main - ECS resolves
-      # the tag to whatever it currently points at when the task starts,
-      # so this always runs against the currently deployed image.
+      # ECR is immutable, so there's no :latest tag to resolve at pull
+      # time - the db-bootstrap task definition's own image is a
+      # placeholder. Resolve the real, currently-deployed image from the
+      # live service instead, and register a fresh task-def revision with
+      # it (RunTask overrides can't replace the image field), the same
+      # pattern deploy-dev.yml uses to update the real services.
+      - name: Resolve currently deployed image
+        id: image
+        run: |
+          set -euo pipefail
+          TASK_DEF_ARN=$(aws ecs describe-services \
+            --cluster "${{ env.ECS_CLUSTER }}" \
+            --services "${{ inputs.service }}-service" \
+            --query 'services[0].taskDefinition' --output text)
+          IMAGE_URI=$(aws ecs describe-task-definition \
+            --task-definition "${TASK_DEF_ARN}" \
+            --query 'taskDefinition.containerDefinitions[0].image' --output text)
+          if [ -z "$IMAGE_URI" ] || [ "$IMAGE_URI" = "None" ]; then
+            echo "::error::Could not resolve the currently deployed image for ${{ inputs.service }}-service"
+            exit 1
+          fi
+          echo "uri=${IMAGE_URI}" >> "$GITHUB_OUTPUT"
+          echo "Using image: ${IMAGE_URI}"
+
+      - name: Register bootstrap task definition revision
+        id: task-def
+        env:
+          IMAGE_URI: ${{ steps.image.outputs.uri }}
+        run: |
+          set -euo pipefail
+          aws ecs describe-task-definition \
+            --task-definition "listings-dev-db-bootstrap-${{ inputs.service }}" \
+            --query 'taskDefinition' > current-task-def.json
+
+          jq --arg IMAGE "${IMAGE_URI}" \
+            '.containerDefinitions[0].image = $IMAGE
+             | del(.taskDefinitionArn, .revision, .status, .requiresAttributes,
+                   .compatibilities, .registeredAt, .registeredBy)' \
+            current-task-def.json > new-task-def.json
+
+          NEW_ARN=$(aws ecs register-task-definition \
+            --cli-input-json file://new-task-def.json \
+            --query 'taskDefinition.taskDefinitionArn' \
+            --output text)
+          echo "arn=${NEW_ARN}" >> "$GITHUB_OUTPUT"
+
       - name: Run bootstrap task
         id: run
         run: |
           set -euo pipefail
           TASK_ARN=$(aws ecs run-task \
             --cluster "${{ env.ECS_CLUSTER }}" \
-            --task-definition "listings-dev-db-bootstrap-${{ inputs.service }}" \
+            --task-definition "${{ steps.task-def.outputs.arn }}" \
             --launch-type FARGATE \
             --network-configuration "awsvpcConfiguration={subnets=[${{ steps.net.outputs.subnets }}],securityGroups=[${{ steps.net.outputs.security_group }}],assignPublicIp=DISABLED}" \
             --query 'tasks[0].taskArn' --output text)
