@@ -7,7 +7,7 @@ pydantic-settings==2.15.0
 # Database
 sqlalchemy[asyncio]==2.0.54
 asyncpg==0.31.0
-alembic==1.18.5
+alembic==1.20.0
 
 # Security: password hashing
 pwdlib[argon2]==0.3.1
