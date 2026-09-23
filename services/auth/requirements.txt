@@ -14,7 +14,7 @@ pwdlib[argon2]==0.3.1
 argon2-cffi==25.1.0
 
 # Security: JWT
-pyjwt[crypto]==2.13.0
+pyjwt[crypto]==2.14.0
 
 # Utilities
 python-multipart==0.0.31
