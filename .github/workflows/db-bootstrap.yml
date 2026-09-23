@@ -1,0 +1,89 @@
+name: Bootstrap DB roles (dev)
+
+on:
+  workflow_dispatch:
+    inputs:
+      service:
+        description: "Which service's database roles to bootstrap"
+        required: true
+        type: choice
+        options: [auth, listings]
+
+permissions:
+  contents: read
+
+env:
+  AWS_REGION: ${{ vars.AWS_REGION }}
+  ECS_CLUSTER: listings-dev-cluster
+
+jobs:
+  bootstrap:
+    name: Bootstrap ${{ inputs.service }} DB roles
+    runs-on: ubuntu-latest
+    environment:
+      name: dev
+    permissions:
+      contents: read
+      id-token: write
+    steps:
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v6.3.0
+        with:
+          role-to-assume: ${{ secrets.AWS_DEPLOY_ROLE_ARN }}
+          aws-region: ${{ env.AWS_REGION }}
+          role-session-name: gha-db-bootstrap-${{ inputs.service }}-${{ github.run_id }}
+          mask-aws-account-id: true
+          role-duration-seconds: 900
+
+      - name: Resolve network configuration
+        id: net
+        run: |
+          set -euo pipefail
+          SUBNETS=$(aws ec2 describe-subnets \
+            --filters "Name=tag:Name,Values=listings-dev-private-*" \
+            --query 'Subnets[].SubnetId' --output text | tr '\t' ',')
+          SG=$(aws ec2 describe-security-groups \
+            --filters "Name=tag:Name,Values=listings-dev-tasks-sg" \
+            --query 'SecurityGroups[0].GroupId' --output text)
+          if [ -z "$SUBNETS" ] || [ "$SG" = "None" ]; then
+            echo "::error::Could not resolve private subnets or the tasks security group"
+            exit 1
+          fi
+          echo "subnets=${SUBNETS}" >> "$GITHUB_OUTPUT"
+          echo "security_group=${SG}" >> "$GITHUB_OUTPUT"
+
+      - name: Run bootstrap task
+        id: run
+        run: |
+          set -euo pipefail
+          TASK_ARN=$(aws ecs run-task \
+            --cluster "${{ env.ECS_CLUSTER }}" \
+            --task-definition "listings-dev-db-bootstrap-${{ inputs.service }}" \
+            --launch-type FARGATE \
+            --network-configuration "awsvpcConfiguration={subnets=[${{ steps.net.outputs.subnets }}],securityGroups=[${{ steps.net.outputs.security_group }}],assignPublicIp=DISABLED}" \
+            --query 'tasks[0].taskArn' --output text)
+          if [ -z "$TASK_ARN" ] || [ "$TASK_ARN" = "None" ]; then
+            echo "::error::ecs run-task did not return a task ARN"
+            exit 1
+          fi
+          echo "task_arn=${TASK_ARN}" >> "$GITHUB_OUTPUT"
+          echo "Started task: ${TASK_ARN}"
+
+      - name: Wait for task to stop
+        run: |
+          aws ecs wait tasks-stopped \
+            --cluster "${{ env.ECS_CLUSTER }}" \
+            --tasks "${{ steps.run.outputs.task_arn }}"
+
+      - name: Check exit code
+        run: |
+          set -euo pipefail
+          EXIT_CODE=$(aws ecs describe-tasks \
+            --cluster "${{ env.ECS_CLUSTER }}" \
+            --tasks "${{ steps.run.outputs.task_arn }}" \
+            --query 'tasks[0].containers[0].exitCode' --output text)
+          echo "Container exit code: ${EXIT_CODE}"
+          if [ "$EXIT_CODE" != "0" ]; then
+            echo "::error::Bootstrap task failed (exit code ${EXIT_CODE}). Check CloudWatch Logs: /ecs/listings-dev/db-bootstrap-${{ inputs.service }}"
+            exit 1
+          fi

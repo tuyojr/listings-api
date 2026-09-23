@@ -24,6 +24,8 @@ COPY --from=builder /install /usr/local
 
 COPY --chown=appuser:appuser shared/ /app/shared/
 
+COPY --chown=appuser:appuser scripts/ /app/scripts/
+
 COPY --chown=appuser:appuser services/auth/ /app/
 
 USER appuser
