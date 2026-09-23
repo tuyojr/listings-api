@@ -108,6 +108,58 @@ jobs:
             --output text)
           echo "arn=${NEW_ARN}" >> "$GITHUB_OUTPUT"
 
+      - name: Resolve network configuration
+        id: net
+        run: |
+          set -euo pipefail
+          SUBNETS=$(aws ec2 describe-subnets \
+            --filters "Name=tag:Name,Values=listings-dev-private-*" \
+            --query 'Subnets[].SubnetId' --output text | tr '\t' ',')
+          SG=$(aws ec2 describe-security-groups \
+            --filters "Name=tag:Name,Values=listings-dev-tasks-sg" \
+            --query 'SecurityGroups[0].GroupId' --output text)
+          if [ -z "$SUBNETS" ] || [ "$SG" = "None" ]; then
+            echo "::error::Could not resolve private subnets or the tasks security group"
+            exit 1
+          fi
+          echo "subnets=${SUBNETS}" >> "$GITHUB_OUTPUT"
+          echo "security_group=${SG}" >> "$GITHUB_OUTPUT"
+
+      # Runs the new revision's own image with its command overridden to
+      # alembic instead of uvicorn, using the same task/execution roles
+      # the service already runs with - it already has access to the
+      # *_migrate_password secret. Migrating before updating the service
+      # means a failed migration blocks the deploy instead of rolling out
+      # code against a schema it doesn't match.
+      - name: Run database migration
+        id: migrate
+        run: |
+          set -euo pipefail
+          TASK_ARN=$(aws ecs run-task \
+            --cluster "${{ env.ECS_CLUSTER }}" \
+            --task-definition "${{ steps.task-def.outputs.arn }}" \
+            --launch-type FARGATE \
+            --network-configuration "awsvpcConfiguration={subnets=[${{ steps.net.outputs.subnets }}],securityGroups=[${{ steps.net.outputs.security_group }}],assignPublicIp=DISABLED}" \
+            --overrides "{\"containerOverrides\":[{\"name\":\"${{ matrix.service }}\",\"command\":[\"alembic\",\"upgrade\",\"head\"]}]}" \
+            --query 'tasks[0].taskArn' --output text)
+          if [ -z "$TASK_ARN" ] || [ "$TASK_ARN" = "None" ]; then
+            echo "::error::ecs run-task did not return a task ARN for the migration"
+            exit 1
+          fi
+          echo "Started migration task: ${TASK_ARN}"
+
+          aws ecs wait tasks-stopped --cluster "${{ env.ECS_CLUSTER }}" --tasks "${TASK_ARN}"
+
+          EXIT_CODE=$(aws ecs describe-tasks \
+            --cluster "${{ env.ECS_CLUSTER }}" \
+            --tasks "${TASK_ARN}" \
+            --query 'tasks[0].containers[0].exitCode' --output text)
+          echo "Migration exit code: ${EXIT_CODE}"
+          if [ "$EXIT_CODE" != "0" ]; then
+            echo "::error::Migration failed (exit code ${EXIT_CODE}). Check CloudWatch Logs: /ecs/listings-dev/${{ matrix.service }}"
+            exit 1
+          fi
+
       - name: Update service
         run: |
           aws ecs update-service \
